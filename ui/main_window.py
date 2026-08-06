@@ -1,5 +1,8 @@
 from PySide6.QtCore import Qt
 from core.video import Video
+from core.thumbnail import ThumbnailGenerator
+import cv2
+
 
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -29,7 +32,13 @@ class MainWindow(QWidget):
 
         self.selectButton.clicked.connect(self.selectVideo)
 
-        self.preview = QFrame()
+        self.preview = QLabel()
+
+        self.preview.setFixedHeight(300)
+
+        self.preview.setAlignment(Qt.AlignCenter)
+
+        self.preview.setText("Sem preview")
 
         self.preview.setMinimumHeight(250)
 
@@ -60,6 +69,33 @@ class MainWindow(QWidget):
         self.setLayout(layout)
 
     def selectVideo(self):
+
+        frame = ThumbnailGenerator.get_frame(filename)
+
+        if frame is not None:
+
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+            h, w, ch = frame.shape
+
+            image = QImage(
+                frame.data,
+                w,
+                h,
+                ch * w,
+                QImage.Format_RGB888,
+            )
+
+            pixmap = QPixmap.fromImage(image)
+
+            self.preview.setPixmap(
+            pixmap.scaled(
+                500,
+                300,
+                Qt.KeepAspectRatio,
+                Qt.SmoothTransformation,
+                )
+            )
 
         filename, _ = QFileDialog.getOpenFileName(
             self,
