@@ -1,68 +1,36 @@
+"""Video loading and metadata service – uses ffprobe, NOT OpenCV."""
+
+from __future__ import annotations
+
 from pathlib import Path
 
-import cv2
-
+from core.ffmpeg import ProbeResult, probe as ffmpeg_probe
 from models.video_info import VideoInfo
 
 
 class VideoService:
+    """Delegates to ffprobe for all video metadata extraction."""
 
     @staticmethod
-    def load(filename: str) -> VideoInfo:
+    def load(video_path: Path) -> VideoInfo:
+        """Load video metadata and return a ``VideoInfo`` instance.
 
-        path = Path(filename)
+        This method **must not** use OpenCV.  All probing goes through
+        :func:`core.ffmpeg.probe`.
+        """
+        if not video_path.is_file():
+            raise FileNotFoundError(f"Video not found: {video_path}")
 
-        if not path.exists():
-            raise FileNotFoundError(
-                f"Vídeo não encontrado: {filename}"
-            )
-
-        capture = cv2.VideoCapture(str(path))
-
-        if not capture.isOpened():
-            raise ValueError(
-                f"Não foi possível abrir o vídeo: {filename}"
-            )
-
-        try:
-            width = int(
-                capture.get(cv2.CAP_PROP_FRAME_WIDTH)
-            )
-
-            height = int(
-                capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
-            )
-
-            fps = float(
-                capture.get(cv2.CAP_PROP_FPS)
-            )
-
-            frames = int(
-                capture.get(cv2.CAP_PROP_FRAME_COUNT)
-            )
-
-            duration = frames / fps if fps > 0 else 0
-
-            fourcc = int(
-                capture.get(cv2.CAP_PROP_FOURCC)
-            )
-
-            codec = "".join(
-                chr((fourcc >> 8 * i) & 0xFF)
-                for i in range(4)
-            ).strip()
-
-        finally:
-            capture.release()
+        probe_result: ProbeResult = ffmpeg_probe(video_path)
 
         return VideoInfo(
-            path=path,
-            filename=path.name,
-            width=width,
-            height=height,
-            fps=fps,
-            frames=frames,
-            duration=duration,
-            codec=codec,
-            size=path.stat().st_size,
+            path=video_path,
+            filename=video_path.name,
+            width=probe_result.width,
+            height=probe_result.height,
+            fps=probe_result.fps,
+            frames=probe_result.frame_count,
+            duration=probe_result.duration,
+            codec=probe_result.video_codec,
+            size=probe_result.size,
         )

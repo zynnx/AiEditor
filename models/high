@@ -1,0 +1,107 @@
+"""Highlight configuration and presets for motorcycle video analysis."""
+
+from dataclasses import dataclass, field
+
+
+@dataclass(frozen=True)
+class HighlightPreset:
+    """A predefined highlight preset with description and AI prompt."""
+
+    name: str
+    description: str
+    ai_prompt: str
+    min_score: float = 7.0
+    max_duration_minutes: float | None = None
+
+
+# Built-in motorcycle highlight presets
+PRESETS = (
+    HighlightPreset(
+        name="Full Highlight",
+        description="5-minute highlight of the best moments",
+        ai_prompt=(
+            "Analyze these motorcycle ride frames and score each batch from 0 to 10. "
+            "Look for beautiful roads, curves, mountain scenery, ocean views, bridges, "
+            "tunnels, overtakes, wheelies, sunrise/sunset, forest roads, and interesting "
+            "riding moments. Return structured JSON only."
+        ),
+        min_score=6.5,
+        max_duration_minutes=5.0,
+    ),
+    HighlightPreset(
+        name="Curves Only",
+        description="Keep only curve and cornering moments",
+        ai_prompt=(
+            "Analyze these motorcycle ride frames focusing on curves, corners, and "
+            "cornering action. Score from 0 to 10 based on how compelling the curve is. "
+            "Return structured JSON only."
+        ),
+        min_score=7.0,
+    ),
+    HighlightPreset(
+        name="Scenic Roads",
+        description="Beautiful landscapes and scenery",
+        ai_prompt=(
+            "Analyze these motorcycle ride frames for beautiful scenery: mountains, "
+            "oceans, forests, sunsets, sunrises, and scenic roads. Score from 0 to 10. "
+            "Return structured JSON only."
+        ),
+        min_score=7.5,
+    ),
+    HighlightPreset(
+        name="Action Moments",
+        description="Overtakes, wheelies, and exciting riding",
+        ai_prompt=(
+            "Analyze these motorcycle ride frames for action: overtakes, wheelies, "
+            "fast corners, dangerous moments, and exciting riding. Score from 0 to 10. "
+            "Return structured JSON only."
+        ),
+        min_score=6.0,
+    ),
+    HighlightPreset(
+        name="Cinematic Edit",
+        description="YouTube-quality cinematic highlight",
+        ai_prompt=(
+            "Analyze these motorcycle ride frames as a cinematographer would. "
+            "Look for dramatic lighting, beautiful compositions, interesting scenery, "
+            "and moments that would make a compelling YouTube video. Score from 0 to 10. "
+            "Return structured JSON only."
+        ),
+        min_score=7.0,
+        max_duration_minutes=5.0,
+    ),
+    HighlightPreset(
+        name="Remove Traffic",
+        description="Keep only open road moments, remove cities and traffic",
+        ai_prompt=(
+            "Analyze these motorcycle ride frames. Score high for open roads, beautiful "
+            "scenery, and free riding. Score low (below 4) for city traffic, congestion, "
+            "and urban environments. Score from 0 to 10. Return structured JSON only."
+        ),
+        min_score=6.0,
+    ),
+)
+
+
+@dataclass(slots=True, frozen=True)
+class Highlight:
+    """A highlight generated from analysis results."""
+
+    preset_name: str
+    clip_count: int
+    total_duration: float
+    average_score: float
+    peak_score: float
+
+
+def get_preset(name: str) -> HighlightPreset | None:
+    """Retrieve a preset by name (case-insensitive)."""
+    for preset in PRESETS:
+        if preset.name.lower() == name.lower():
+            return preset
+    return None
+
+
+def list_presets() -> tuple[HighlightPreset, ...]:
+    """Return all available presets."""
+    return PRESETS
