@@ -167,11 +167,10 @@ class MainWindow(QWidget):
 
         def _analyze() -> tuple[int, float]:
             timeline = self._controller.analyze_video(
-                prompt="Find the best motorcycle riding moments",
                 rate_fps=1.0,
             )
-            total_clips = len(timeline.clips)
-            total_duration = sum(c.duration for c in timeline.clips)
+            total_clips = len(timeline.events)
+            total_duration = sum(e.duration for e in timeline.events)
             return total_clips, total_duration
 
         self._analysis_thread = _WorkerThread(_analyze)
@@ -197,11 +196,12 @@ class MainWindow(QWidget):
         if self._controller.timeline:
             info_text = self._format_video_info(self._controller.video_info)
             info_text += "\n\n--- Timeline ---\n"
-            for clip in self._controller.timeline.clips:
-                stars = "⭐" * int(clip.score / 2)
+            for event in self._controller.timeline.events:
+                stars = "⭐" * int(event.score / 2)
+                evt_type = event.event_type.value if event.event_type else "generic"
                 info_text += (
-                    f"[{clip.start_time:.0f}s - {clip.end_time:.0f}s] "
-                    f"{stars} {clip.category}: {clip.reason}\n"
+                    f"[{event.start_time:.0f}s - {event.end_time:.0f}s] "
+                    f"{stars} {evt_type}: {event.reason}\n"
                 )
             self._info_label.setText(info_text)
 
