@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from models.event import TimelineEvent
+from models.scene import Scene
 
 
 @dataclass
@@ -21,9 +22,13 @@ class Timeline:
 
     Attributes:
         events: Every detected point of interest, sorted by start_time.
+        video_path: Path to the source video file (stored for reference).
+        scenes: Detected scene segments from SceneDetector.
     """
 
     events: list[TimelineEvent] = field(default_factory=list)
+    video_path: str = ""
+    scenes: list[Scene] | None = None
 
     # ------------------------------------------------------------------
     # Properties

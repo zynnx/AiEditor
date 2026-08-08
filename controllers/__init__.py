@@ -1,8 +1,5 @@
+"""Controllers package."""
 
+from controllers.main_controller import MainController, create_controller
 
-def analyze_video(self):
-
-        if self.video is None:
-            return None
-
-        return self.ai.analyze(self.video)
+__all__ = ["MainController", "create_controller"]

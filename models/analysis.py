@@ -56,48 +56,6 @@ class FrameAnalysis:
 
 
 # --------------------------------------------------------------------------
-# Road quality scores (per scene)
-# --------------------------------------------------------------------------
-
-
-@dataclass(slots=True, frozen=True)
-class RoadQualityScores:
-    """Multi-dimensional quality assessment for a scene.
-
-    Attributes:
-        visual_beauty: How visually pleasing the scene is (0-10).
-        road_quality: Condition and character of the road itself (0-10).
-        traffic_density: Inverse – low traffic scores higher (0-10).
-        camera_stability: Steadiness of the footage (0-10).
-        lighting: Quality of natural/artificial light (0-10).
-        action_level: Excitement / rider activity (0-10).
-    """
-
-    visual_beauty: float = 5.0
-    road_quality: float = 5.0
-    traffic_density: float = 5.0
-    camera_stability: float = 5.0
-    lighting: float = 5.0
-    action_level: float = 5.0
-
-    @property
-    def average(self) -> float:
-        """Overall average across all dimensions."""
-        return round(
-            (
-                self.visual_beauty
-                + self.road_quality
-                + self.traffic_density
-                + self.camera_stability
-                + self.lighting
-                + self.action_level
-            )
-            / 6,
-            1,
-        )
-
-
-# --------------------------------------------------------------------------
 # Complete analysis result
 # --------------------------------------------------------------------------
 

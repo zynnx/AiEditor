@@ -1,0 +1,20 @@
+# Direct dependencies for Motorcycle AI Editor
+# Generated from actual imports used in the codebase
+# Python >= 3.10 required
+
+# UI framework
+PySide6==6.11.1
+
+# Image processing & scene detection (used by SceneDetector)
+opencv-python==5.0.0.93
+numpy==2.5.1
+
+# Local AI via Ollama
+ollama==0.6.2
+
+# HTTP client for Ollama API (used in core/ollama_client.py)
+requests==2.34.2
+httpx==0.28.1
+
+# FFmpeg wrapper (subprocess-based, used alongside subprocess in core/ffmpeg.py)
+ffmpeg-python==0.2.0

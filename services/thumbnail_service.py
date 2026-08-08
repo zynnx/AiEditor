@@ -43,6 +43,26 @@ class ThumbnailService:
         shutil.copy2(path, out)
         return out
 
+    def get_thumbnail(
+        self,
+        video: VideoInfo,
+    ) -> Path | None:
+        """Return an existing thumbnail for *video*, generating one if needed.
+
+        Returns ``None`` if the video has no metadata or generation fails.
+        """
+        if video is None:
+            return None
+
+        thumb_path = self._thumbnail_dir / f"{Path(video.filename).stem}_thumb.png"
+        if thumb_path.exists():
+            return thumb_path
+
+        try:
+            return self.generate_thumbnail(video)
+        except Exception:
+            return None
+
     def generate_sequence_thumbnails(
         self,
         video: VideoInfo,

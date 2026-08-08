@@ -99,6 +99,53 @@ class SceneDetector:
         )
         return scenes
 
+    def detect_from_video(
+        self,
+        video_path: Path,
+        *,
+        target_fps: float = 1.0,
+        frames_dir: Path | None = None,
+    ) -> list[Scene]:
+        """Convenience method: load extracted frames from disk and detect scenes.
+
+        This method assumes frames were already extracted by FrameExtractor
+        using the naming pattern ``<safe_name>_<rate>fps_%04d.png`` inside
+        ``frames_dir`` (default ``output/frames``).
+
+        Args:
+            video_path: Path to the source video (used to derive frame pattern).
+            target_fps: The extraction rate used (default 1.0).
+            frames_dir: Directory containing extracted frames.
+
+        Returns:
+            Ordered list of Scene objects.
+        """
+        if frames_dir is None:
+            frames_dir = Path("output/frames")
+
+        # Derive the safe filename used by FrameExtractor
+        stem = Path(video_path).stem
+        safe_name = "".join(
+            ch if ch.isalnum() or ch == "_" else "_" for ch in stem
+        )
+
+        pattern = frames_dir / f"{safe_name}_{target_fps}fps_*.png"
+        frame_files = sorted(frame_files for frame_files in frames_dir.glob(pattern))
+
+        if not frame_files:
+            logger.warning("No extracted frames found for %s", video_path)
+            return []
+
+        # Build (timestamp, path) tuples – one frame per second
+        timestamped_frames: list[tuple[float, Path]] = [
+            (float(i) / target_fps, fp) for i, fp in enumerate(frame_files)
+        ]
+
+        logger.info(
+            "Loaded %d frames from disk for scene detection", len(timestamped_frames)
+        )
+        return self.detect_scenes(timestamped_frames, fps=target_fps)
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
