@@ -193,7 +193,7 @@ class AIService:
                             reason=reason,
                             tags=tags,
                             event_type=event_type,
-                            road_quality=RoadQualityScores(**rq_data) if rq_data else RoadQualityScores(),
+                            quality_scores=RoadQualityScores(**rq_data) if rq_data else RoadQualityScores(),
                             scene_id=scene.scene_id,
                         )
                         all_events.append(evt)
