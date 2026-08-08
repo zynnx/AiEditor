@@ -1,166 +1,318 @@
-# Architecture Gap Analysis: AiEditor
+# Architecture Gap Analysis — AiEditor
 
-## Date: 2026-08-07
+Last verified: 2026-08-08
+Repository: zynnx/AiEditor
+Branch: main
 
----
+## Purpose
 
-## ✅ WHAT EXISTS (Current State)
+This file describes the ACTUAL current codebase versus the target architecture.
+It must not describe old implementation states as current gaps.
+
+## Current pipeline
+
+```text
+Video
+  -> Metadata
+  -> Frame Extraction
+  -> Scene Detection
+  -> Vision AI
+  -> AnalysisResult
+  -> Timeline
+  -> Prompt Filter
+  -> Export
+```
+
+## Already implemented
 
 ### Models
-| Model | Status | Notes |
-|-------|--------|-------|
-| `VideoInfo` | ✅ Complete | path, duration, resolution, fps, codec, size |
-| `AnalysisResult` | ✅ Complete | timestamp, score, category, reason, details |
-| `Timeline` | ✅ Complete | list of Clips, total_duration property |
-| `Clip` | ✅ Complete | start_time, end_time, score, category, reason |
+
+| Component | Status |
+|---|---|
+| VideoInfo | IMPLEMENTED |
+| FrameAnalysis | IMPLEMENTED |
+| AnalysisResult | IMPLEMENTED |
+| Scene | IMPLEMENTED |
+| EventType | IMPLEMENTED |
+| RoadQualityScores | IMPLEMENTED |
+| TelemetryData | MODEL ONLY / NO IMPORTER |
+| TimelineEvent | IMPLEMENTED |
+| Timeline | IMPLEMENTED |
+
+`TimelineEvent` already contains event_id, importance, tags, thumbnail, scene_id,
+quality_scores, telemetry and event_type.
+
+Do NOT recreate these models.
 
 ### Services
-| Service | Status | Notes |
-|---------|--------|-------|
-| `VideoService` | ✅ Complete | load() returns VideoInfo |
-| `FrameExtractor` | ✅ Complete | extract_all_frames(), single_frame() |
-| `AIService` | ✅ Complete | analyze_batch(), _analyze_batch(), prompt templates |
-| `CacheService` | ✅ Complete | video hashing, frame/analysis cache |
-| `ExportService` | ✅ Complete | export() with NVENC support |
-| `ThumbnailService` | ✅ Complete | generate_thumbnail(), get_thumbnail() |
 
-### Core
-| Component | Status | Notes |
-|-----------|--------|-------|
-| `ffmpeg.py` | ✅ Complete | probe, extract_frame, concat_segments |
-| `ollama_client.py` | ✅ Complete | OllamaVisionClient, batch processing |
+| Service | Status |
+|---|---|
+| VideoService | IMPLEMENTED |
+| FrameExtractor | IMPLEMENTED |
+| SceneDetector | IMPLEMENTED |
+| AIService | IMPLEMENTED |
+| CacheService | IMPLEMENTED |
+| ThumbnailService | IMPLEMENTED |
+| TimelineService | IMPLEMENTED |
+| PromptService | IMPLEMENTED |
+| ExportService | IMPLEMENTED |
 
-### Controller
-| Component | Status | Notes |
-|-----------|--------|-------|
-| `MainController` | ✅ Complete | Orchestrates full pipeline |
+### AI pipeline
 
-### UI
-| Component | Status | Notes |
-|-----------|--------|-------|
-| `MainWindow` | ✅ Basic | Open, Analyze, Export workflow |
+`AIService.analyze_scenes()` already sends scene frames to Ollama in batches and
+returns structured analysis.
 
----
+The application already performs:
 
-## ❌ GAPS (Missing vs Specification)
-
-### Phase 1: Missing Models
-
-#### Gap 1.1 - No `Scene` model
-**Spec says:** "Frames should first be grouped into scenes. The AI analyzes scenes instead of isolated frames."
-
-**Required fields:**
-```python
-@dataclass
-class Scene:
-    scene_id: str
-    start_time: float
-    end_time: float
-    frame_paths: list[Path]
-    representative_frame: Path  # best frame for preview
+```text
+Frame Extraction
+  -> Scene Detection
+  -> Scene-based AI Analysis
+  -> Timeline
 ```
 
-#### Gap 1.2 - No `TimelineEvent` model (spec differs from current Clip)
-**Spec says:** TimelineEvents have id, importance, description, reason, tags, thumbnail, scene_id
+Do NOT add another Scene model or SceneDetector.
 
-**Current Clip is missing:**
-- `id: str` - unique identifier
-- `importance: float` - separate from score
-- `tags: list[str]` - structured tagging
-- `thumbnail: Path | None` - per-event preview
-- `scene_id: str` - link to source scene
+### Prompt engine
 
-#### Gap 1.3 - No Event Types enumeration
-**Spec lists:** Motorcycle, Curve, Hairpin, Bridge, Tunnel, Forest, Mountain, Sea, Village, City, Highway, Traffic, Overtake, Wheelie, Danger, Interesting road, Scenic road, Sunset, Sunrise, Rain, Night
+`PromptService` already filters an existing Timeline without calling Vision AI.
 
-#### Gap 1.4 - No Road Quality Score model
-**Spec requires:** Visual beauty, Road quality, Traffic density, Camera stability, Lighting, Action level
+Current supported intent includes:
 
-Each category receives a score (0-10).
+- duration
+- top-N
+- cinematic/scenic
+- action
+- event types
+- score-based highlights
 
-#### Gap 1.5 - No Telemetry support
-**Future requirement:** speed, lean_angle, acceleration, altitude, coordinates
+This is implemented.
 
-### Phase 2: Missing Services
+The future enhancement is an LLM-based `EditIntent` parser, but that is NOT a
+missing PromptService.
 
-#### Gap 2.1 - No `SceneDetector` service
-**Critical.** Spec says scene detection happens BEFORE AI analysis.
+### Export
 
-Group frames into scenes using:
-- Visual similarity thresholds
-- Motion vector analysis
-- Or optical flow differences between consecutive frames
+Current export supports:
 
-#### Gap 2.2 - No `PromptService` / Prompt Engine
-**Spec says:** "The AI analysis should be independent from editing."
+- H.264
+- H.265
+- NVIDIA NVENC
+- AAC
+- timeline segment concatenation
 
-Required prompts:
-- `"Create a 3 minute highlight"` → filter timeline by duration
-- `"Create only curves"` → filter by tags
-- `"Create cinematic sunset edit"` → filter by tags + score
+## Real architectural gaps
 
-Current `filter_timeline()` reruns AI analysis. **This violates the spec.**
+### 1. Project System — MISSING
 
-#### Gap 2.3 - No `TimelineService`
-**Spec says:** Timeline generation is its own pipeline phase. Should be a dedicated service, not embedded in MainController.
+The application is still fundamentally video/session oriented.
 
-### Phase 3: Architecture Issues
+Target:
 
-#### Gap 3.1 - `filter_timeline()` reruns AI analysis
-**Current code (line 272):**
-```python
-def filter_timeline(self, prompt: str, ...) -> Timeline:
-    timeline = self.analyze_video(prompt=prompt)  # RERUNS AI!
+```text
+Project
+├── metadata
+├── videos[]
+├── telemetry[]
+├── analysis
+├── timeline
+├── settings
+└── exports[]
 ```
 
-**Spec says:** "Never rerun Vision AI unless the source video changes."
+Future components:
 
-Must be replaced with pure filtering of existing timeline events.
+```text
+models/project.py
+services/project_service.py
+repository/project_repository.py
+```
 
-#### Gap 3.2 - Analysis doesn't use scenes
-AI receives all frames individually instead of grouped by scene.
+### 2. Repository Layer — MISSING
 
-#### Gap 3.3 - No repository layer
-**Spec requires:** `analysis_repository.py`, `cache_repository.py`
+Target:
 
-### Phase 4: UI Gaps
+```text
+repository/
+├── project_repository.py
+├── analysis_repository.py
+└── cache_repository.py
+```
 
-#### Gap 4.1 - No visual timeline editor
-**Spec says:** "The result is an editable timeline."
+Initial persistence may use JSON. It should later be replaceable by SQLite.
 
-Missing:
-- Timeline visualization (waveform/thumbnail track)
-- Clip selection/removal
-- Duration adjustment
-- Score/importance indicators
+### 3. Project-scoped cache — MISSING
 
-#### Gap 4.2 - No prompt input for re-editing
-User cannot write "Create a 3 minute highlight" without triggering re-analysis.
+Current cache uses global paths:
 
----
+```text
+output/cache
+output/frames
+output/thumbnails
+```
 
-## PRIORITY IMPLEMENTATION ORDER
+Target:
 
-### Priority 1: Foundational (Required for spec compliance)
-1. Add `Scene` model
-2. Add `SceneDetector` service
-3. Update `TimelineEvent`/`Clip` with missing fields
-4. Add `EventType` enum
-5. Add `RoadQualityScores` dataclass
+```text
+Project/
+├── project.json
+├── cache/
+├── analysis/
+├── thumbnails/
+└── exports/
+```
 
-### Priority 2: Pipeline Correction
-6. Fix `filter_timeline()` to NOT rerun AI
-7. Create `PromptService` for natural language filtering
-8. Create `TimelineService` for timeline generation
-9. Update AI prompt to return structured tags and scores
+### 4. Task/Job System — MISSING
 
-### Priority 3: UI Enhancement
-10. Add visual timeline component
-11. Add prompt input field for re-editing
-12. Add event browser/filter panel 
+The UI has a worker thread, but not a full job system.
 
+Target:
 
-                ### Priority 4: Future-Proofing
-13. Add telemetry fields to models
-14. Implement repository layer
-15. Add unit test framework
+```text
+TaskManager
+├── FrameExtractionJob
+├── SceneDetectionJob
+├── AIAnalysisJob
+└── ExportJob
+```
+
+Jobs should support progress, status, cancellation and errors.
+
+### 5. Visual Timeline UI — PARTIAL
+
+The Timeline domain model and editing operations exist.
+
+Still missing:
+
+- visual thumbnail timeline
+- event browser
+- drag/resize
+- visual score indicators
+- timeline zoom/navigation
+
+### 6. Telemetry ingestion — MISSING
+
+`TelemetryData` exists, but there is no GPX/DJI/GoPro/Garmin importer.
+
+### 7. Plugin architecture — FUTURE
+
+Not implemented. Do not implement until Project and Repository architecture are stable.
+
+## Real technical debt / bugs
+
+### AIService field mismatch
+
+`TimelineEvent` defines:
+
+```python
+quality_scores
+```
+
+but `AIService.analyze_scenes()` currently passes:
+
+```python
+road_quality=...
+```
+
+This can cause a runtime TypeError.
+
+The correct field is:
+
+```python
+quality_scores=RoadQualityScores(...)
+```
+
+### Analysis cache serialization
+
+`MainController` attempts to cache an AnalysisResult using `__dict__`.
+The result contains nested dataclasses and Path objects, so a proper serialization
+boundary is required.
+
+This should eventually belong to the repository/serialization layer.
+
+### Global cache
+
+CacheService is currently global rather than project-scoped. This is acceptable
+for the current MVP but must change when Project is introduced.
+
+### MainController size
+
+MainController coordinates many services and is becoming a God Controller.
+Do not rewrite it immediately. ProjectService and TaskManager should gradually
+reduce its responsibilities.
+
+### core/ vs services/
+
+There are overlapping/legacy responsibilities in `core/` and `services/`.
+Trace imports before deleting anything. Do not create duplicate replacements.
+
+## Recommended order
+
+### Phase 0 — Stabilization
+
+1. Fix AIService `road_quality` -> `quality_scores`.
+2. Fix/verify AnalysisResult cache serialization.
+3. Add basic tests for models and PromptService.
+4. Trace legacy `core/` modules before removing anything.
+
+### Phase 1 — Project
+
+1. Project model
+2. ProjectRepository
+3. ProjectService
+4. project.json persistence
+5. project-scoped cache
+6. migrate current single-video workflow into a Project
+
+### Phase 2 — Tasks
+
+1. Job abstraction
+2. TaskManager
+3. progress
+4. cancellation
+5. UI task/status panel
+
+### Phase 3 — Timeline UI
+
+1. event browser
+2. thumbnail timeline
+3. selection/removal
+4. manual editing
+
+### Phase 4 — Advanced Prompt Engine
+
+1. EditIntent
+2. LLM intent parsing
+3. deterministic timeline filtering
+
+### Phase 5 — Plugins
+
+Only after the above is stable.
+
+## Rules for AI coding agents
+
+1. Read this file before changing architecture.
+2. Inspect the actual repository before assuming something is missing.
+3. Never recreate existing Scene, TimelineEvent, EventType, RoadQualityScores,
+   SceneDetector, PromptService or TimelineService.
+4. Do not rewrite working subsystems unnecessarily.
+5. Implement one phase at a time.
+6. Do not implement future phases automatically.
+7. Keep changes small and testable.
+8. Update this file when implementation materially changes.
+
+## Bottom line
+
+The existing AI pipeline is already implemented.
+
+The next major architectural milestone is:
+
+```text
+Project
+  -> ProjectRepository
+  -> ProjectService
+  -> Project-scoped persistence/cache
+```
+
+Do not rebuild the existing AI pipeline.
