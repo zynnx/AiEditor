@@ -179,10 +179,10 @@ class MainController:
         logger.info("Detected %d scenes", len(scenes))
 
         # -- Step 3: Check AI cache (cache key is video-only, not prompt) --
-        cached = self._cache_service.get_cached_analysis(vhash, "default_prompt")
+        cached = self._cache_service.load_cached_analysis(vhash, "default_prompt")
         if cached is not None:
             logger.info("Loading analysis from cache")
-            self._analysis_result = AnalysisResult(**cached[0]) if cached else None
+            self._analysis_result = cached
         else:
             # -- Step 4: AI vision analysis (scene-based, never duplicates) --
             frame_map = {str(f): f for f in frames}
@@ -192,10 +192,9 @@ class MainController:
             )
 
             # -- Step 6: Cache results (video-hash only) --
-            self._cache_service.save_analysis(
-                vhash, "default_prompt", [self._analysis_result.__dict__]
+            self._cache_service.save_analysis_result(
+                vhash, "default_prompt", self._analysis_result
             )
-            logger.info("Analysis cached for video hash %s", vhash)
 
         # -- Step 5: Build Timeline from analysis --
         if self._analysis_result is None:
